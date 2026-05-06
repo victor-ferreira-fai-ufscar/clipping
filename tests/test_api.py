@@ -1,3 +1,4 @@
+from datetime import date
 from pathlib import Path
 import sys
 from unittest.mock import AsyncMock
@@ -52,6 +53,8 @@ def test_scrape_accepts_single_name(monkeypatch) -> None:
         source_url=main_module.settings.clipping_url,
         limit=10,
         timeout=main_module.settings.request_timeout,
+        start_date=None,
+        end_date=None,
     )
 
 
@@ -77,6 +80,8 @@ def test_scrape_accepts_name_and_names(monkeypatch) -> None:
         source_url=main_module.settings.clipping_url,
         limit=main_module.settings.default_limit,
         timeout=main_module.settings.request_timeout,
+        start_date=None,
+        end_date=None,
     )
 
 
@@ -93,6 +98,8 @@ def test_scrape_uses_default_file_when_body_is_empty(monkeypatch) -> None:
         source_url=main_module.settings.clipping_url,
         limit=main_module.settings.default_limit,
         timeout=main_module.settings.request_timeout,
+        start_date=None,
+        end_date=None,
     )
 
 
@@ -129,6 +136,43 @@ def test_scrape_aggregate_counts_news_by_person(monkeypatch) -> None:
     ]
 
 
+def test_scrape_accepts_date_range(monkeypatch) -> None:
+    fake_scrape = AsyncMock(return_value=[])
+    monkeypatch.setattr(main_module, "scrape_news", fake_scrape)
+
+    response = client.post(
+        "/scrape",
+        json={
+            "name": "Heber Lombardi de Carvalho",
+            "start_date": "2026-05-01",
+            "end_date": "2026-05-06",
+        },
+    )
+
+    assert response.status_code == 200
+    fake_scrape.assert_awaited_once_with(
+        names=["Heber Lombardi de Carvalho"],
+        source_url=main_module.settings.clipping_url,
+        limit=main_module.settings.default_limit,
+        timeout=main_module.settings.request_timeout,
+        start_date=date(2026, 5, 1),
+        end_date=date(2026, 5, 6),
+    )
+
+
+def test_scrape_rejects_invalid_date_range() -> None:
+    response = client.post(
+        "/scrape",
+        json={
+            "name": "Heber Lombardi de Carvalho",
+            "start_date": "2026-05-10",
+            "end_date": "2026-05-01",
+        },
+    )
+
+    assert response.status_code == 422
+
+
 def test_openapi_documents_name_modes_and_examples() -> None:
     response = client.get("/openapi.json")
 
@@ -151,6 +195,12 @@ def test_openapi_documents_name_modes_and_examples() -> None:
     )
     assert (
         "defaultFile"
+        in scrape_operation["requestBody"]["content"]["application/json"]["examples"]
+    )
+    assert "start_date" in scrape_schema["properties"]
+    assert "end_date" in scrape_schema["properties"]
+    assert (
+        "dateRange"
         in scrape_operation["requestBody"]["content"]["application/json"]["examples"]
     )
     assert "/scrape/aggregate" in payload["paths"]

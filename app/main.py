@@ -1,3 +1,5 @@
+from datetime import date
+
 from fastapi import Body, FastAPI, HTTPException
 from scalar_fastapi import get_scalar_api_reference
 
@@ -56,12 +58,12 @@ def healthcheck() -> dict[str, str]:
 
 def resolve_scrape_parameters(
     request: ScrapeRequest | None,
-) -> tuple[list[str], str, int]:
+) -> tuple[list[str], str, int, date | None, date | None]:
     parsed_request = request or ScrapeRequest()
     names = parsed_request.names or load_names(settings.names_file)
     source_url = parsed_request.source_url or settings.clipping_url
     limit = parsed_request.limit or settings.default_limit
-    return names, source_url, limit
+    return names, source_url, limit, parsed_request.start_date, parsed_request.end_date
 
 
 @app.post(
@@ -99,6 +101,15 @@ async def run_scrape(
                     "source_url": "https://www.ccs.ufscar.br/clipping",
                 },
             },
+            "dateRange": {
+                "summary": "Buscar por periodo",
+                "description": "Filtra noticias entre `start_date` e `end_date`.",
+                "value": {
+                    "name": "Heber Lombardi de Carvalho",
+                    "start_date": "2026-05-01",
+                    "end_date": "2026-05-06",
+                },
+            },
             "defaultFile": {
                 "summary": "Usar arquivo padrao de nomes",
                 "description": "Envia um corpo vazio para usar automaticamente o arquivo `assets/nomes.csv`.",
@@ -107,7 +118,7 @@ async def run_scrape(
         },
     ),
 ) -> ScrapeResponse:
-    names, source_url, limit = resolve_scrape_parameters(request)
+    names, source_url, limit, start_date, end_date = resolve_scrape_parameters(request)
 
     try:
         items = await scrape_news(
@@ -115,6 +126,8 @@ async def run_scrape(
             source_url=source_url,
             limit=limit,
             timeout=settings.request_timeout,
+            start_date=start_date,
+            end_date=end_date,
         )
     except FileNotFoundError as error:
         raise HTTPException(status_code=500, detail=str(error)) from error
@@ -142,7 +155,7 @@ async def run_scrape(
 async def run_scrape_aggregate(
     request: ScrapeRequest | None = Body(default=None),
 ) -> ScrapeAggregateResponse:
-    names, source_url, limit = resolve_scrape_parameters(request)
+    names, source_url, limit, start_date, end_date = resolve_scrape_parameters(request)
 
     try:
         items = await scrape_news(
@@ -150,6 +163,8 @@ async def run_scrape_aggregate(
             source_url=source_url,
             limit=limit,
             timeout=settings.request_timeout,
+            start_date=start_date,
+            end_date=end_date,
         )
     except FileNotFoundError as error:
         raise HTTPException(status_code=500, detail=str(error)) from error

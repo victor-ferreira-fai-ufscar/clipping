@@ -77,6 +77,8 @@ O endpoint aceita tres formas principais de uso:
 2. Varios nomes em `names`
 3. Corpo vazio `{}` para usar automaticamente `assets/nomes.csv`
 
+Opcionalmente, voce pode filtrar por periodo com `start_date` e `end_date` (formato `YYYY-MM-DD`).
+
 Exemplo com um nome:
 
 ```bash
@@ -97,6 +99,18 @@ curl -X POST "http://localhost:8000/scrape" \
   "names": ["Heber Lombardi de Carvalho", "Alexandra Sanches"],
   "limit": 20,
   "source_url": "https://www.ccs.ufscar.br/clipping"
+ }'
+```
+
+Exemplo com filtro por data:
+
+```bash
+curl -X POST "http://localhost:8000/scrape" \
+ -H "Content-Type: application/json" \
+ -d '{
+  "name": "Heber Lombardi de Carvalho",
+  "start_date": "2026-05-01",
+  "end_date": "2026-05-06"
  }'
 ```
 
@@ -129,3 +143,5 @@ curl -X POST "http://localhost:8000/scrape/aggregate" \
   "limit": 20
  }'
 ```
+
+Tambem aceita `start_date` e `end_date` para agregar noticias por pessoa em um periodo especifico.

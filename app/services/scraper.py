@@ -1,7 +1,8 @@
 from __future__ import annotations
 
+from datetime import date
 import unicodedata
-from urllib.parse import urljoin
+from urllib.parse import parse_qsl, urlencode, urljoin, urlparse, urlunparse
 
 from playwright.async_api import Error as PlaywrightError
 from playwright.async_api import Page
@@ -99,6 +100,25 @@ def is_saci_clipping_url(url: str) -> bool:
     return "saci.ufscar.br/servico_clipping" in normalized_url
 
 
+def apply_saci_date_filters(
+    url: str,
+    start_date: date | None,
+    end_date: date | None,
+) -> str:
+    if not start_date and not end_date:
+        return url
+
+    parsed_url = urlparse(url)
+    query_params = dict(parse_qsl(parsed_url.query, keep_blank_values=True))
+
+    if start_date:
+        query_params["inicio"] = start_date.strftime("%d/%m/%Y")
+    if end_date:
+        query_params["fim"] = end_date.strftime("%d/%m/%Y")
+
+    return urlunparse(parsed_url._replace(query=urlencode(query_params)))
+
+
 async def try_fetch_article_text(page, url: str, timeout_ms: int) -> str:
     try:
         await page.goto(url, wait_until="domcontentloaded", timeout=timeout_ms)
@@ -129,6 +149,8 @@ async def scrape_news(
     source_url: str,
     limit: int,
     timeout: float,
+    start_date: date | None = None,
+    end_date: date | None = None,
 ) -> list[NewsItem]:
     timeout_ms = int(timeout * 1000)
 
@@ -160,6 +182,11 @@ async def scrape_news(
             )
             if isinstance(iframe_src, str) and iframe_src.strip():
                 iframe_url = urljoin(source_url, iframe_src)
+                iframe_url = apply_saci_date_filters(
+                    iframe_url,
+                    start_date=start_date,
+                    end_date=end_date,
+                )
                 iframe_page = await context.new_page()
                 try:
                     await iframe_page.goto(

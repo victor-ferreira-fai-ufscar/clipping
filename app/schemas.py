@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import date, datetime
 from typing import Self
 
 from pydantic import BaseModel, Field, model_validator
@@ -35,6 +35,16 @@ class ScrapeRequest(BaseModel):
         description="URL da pagina inicial do clipping. Se omitida, usa a URL padrao configurada da CCS UFSCar.",
         examples=["https://www.ccs.ufscar.br/clipping"],
     )
+    start_date: date | None = Field(
+        default=None,
+        description="Data inicial do filtro de clipping no formato ISO (YYYY-MM-DD).",
+        examples=["2026-05-01"],
+    )
+    end_date: date | None = Field(
+        default=None,
+        description="Data final do filtro de clipping no formato ISO (YYYY-MM-DD).",
+        examples=["2026-05-06"],
+    )
 
     @model_validator(mode="after")
     def normalize_names(self) -> Self:
@@ -56,6 +66,10 @@ class ScrapeRequest(BaseModel):
 
         self.name = normalized_single
         self.names = merged_names or None
+
+        if self.start_date and self.end_date and self.start_date > self.end_date:
+            raise ValueError("`start_date` nao pode ser maior que `end_date`.")
+
         return self
 
 
