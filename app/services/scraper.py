@@ -16,6 +16,7 @@ from app.schemas import NewsItem
 STOPWORDS = {"de", "da", "do", "das", "dos", "e"}
 REQUEST_DELAY_SECONDS = 0.35
 MAX_ARTICLE_FETCHES_MULTIPLIER = 4
+MAX_LISTING_PAGES = 20
 
 
 def normalize_text(value: str) -> str:
@@ -65,7 +66,9 @@ def match_names_in_text(
     matched_names: list[str] = []
     for name in names:
         variants = name_variants.get(name, set())
-        if any(variant and variant in normalized_searchable_text for variant in variants):
+        if any(
+            variant and variant in normalized_searchable_text for variant in variants
+        ):
             matched_names.append(name)
 
     return matched_names
@@ -170,6 +173,49 @@ def apply_saci_date_filters(
     return urlunparse(parsed_url._replace(query=urlencode(query_params)))
 
 
+def apply_saci_pagination(url: str, page_number: int) -> str:
+    if page_number <= 1:
+        return url
+
+    parsed_url = urlparse(url)
+    query_params = dict(parse_qsl(parsed_url.query, keep_blank_values=True))
+    query_params["pag"] = str(page_number)
+    return urlunparse(parsed_url._replace(query=urlencode(query_params)))
+
+
+async def extract_saci_pagination_numbers(
+    page: Page,
+    max_listing_pages: int,
+) -> list[int]:
+    try:
+        hrefs = await page.eval_on_selector_all(
+            "a[href*='pag=']",
+            "elements => elements.map((element) => element.getAttribute('href') || '')",
+        )
+    except Exception:
+        return []
+
+    numbers: set[int] = set()
+    for href in hrefs:
+        if not isinstance(href, str) or "pag=" not in href:
+            continue
+
+        try:
+            page_str = dict(parse_qsl(urlparse(href).query, keep_blank_values=True)).get(
+                "pag"
+            )
+            if not page_str:
+                continue
+
+            page_number = int(page_str)
+            if 2 <= page_number <= max_listing_pages:
+                numbers.add(page_number)
+        except ValueError:
+            continue
+
+    return sorted(numbers)
+
+
 async def try_fetch_article_text(page, url: str, timeout_ms: int) -> str:
     try:
         await page.goto(url, wait_until="domcontentloaded", timeout=timeout_ms)
@@ -204,6 +250,7 @@ async def scrape_news(
     end_date: date | None = None,
     request_delay_seconds: float = REQUEST_DELAY_SECONDS,
     max_article_fetches: int | None = None,
+    max_listing_pages: int = MAX_LISTING_PAGES,
 ) -> list[NewsItem]:
     timeout_ms = int(timeout * 1000)
     max_fetches = max_article_fetches or max(limit * MAX_ARTICLE_FETCHES_MULTIPLIER, 20)
@@ -252,6 +299,23 @@ async def scrape_news(
                     candidates.extend(
                         await extract_candidate_news(iframe_page, iframe_url)
                     )
+
+                    page_numbers = await extract_saci_pagination_numbers(
+                        iframe_page,
+                        max_listing_pages=max_listing_pages,
+                    )
+                    for page_number in page_numbers:
+                        paginated_url = apply_saci_pagination(iframe_url, page_number)
+                        await iframe_page.goto(
+                            paginated_url,
+                            wait_until="domcontentloaded",
+                            timeout=timeout_ms,
+                        )
+                        candidates.extend(
+                            await extract_candidate_news(iframe_page, paginated_url)
+                        )
+                        if request_delay_seconds > 0:
+                            await asyncio.sleep(request_delay_seconds)
                 finally:
                     await iframe_page.close()
 
@@ -278,9 +342,7 @@ async def scrape_news(
                         continue
                     seen.add(dedupe_key)
 
-                    searchable_text = (
-                        f"{title} {candidate['summary'] or ''}"
-                    )
+                    searchable_text = f"{title} {candidate['summary'] or ''}"
                     matched_names = match_names_in_text(
                         names=names,
                         searchable_text=searchable_text,

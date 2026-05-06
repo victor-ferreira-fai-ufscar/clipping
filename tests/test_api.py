@@ -57,6 +57,7 @@ def test_scrape_accepts_single_name(monkeypatch) -> None:
         end_date=None,
         request_delay_seconds=main_module.settings.request_delay_seconds,
         max_article_fetches=main_module.settings.max_article_fetches,
+        max_listing_pages=main_module.settings.max_listing_pages,
     )
 
 
@@ -86,6 +87,7 @@ def test_scrape_accepts_name_and_names(monkeypatch) -> None:
         end_date=None,
         request_delay_seconds=main_module.settings.request_delay_seconds,
         max_article_fetches=main_module.settings.max_article_fetches,
+        max_listing_pages=main_module.settings.max_listing_pages,
     )
 
 
@@ -106,6 +108,7 @@ def test_scrape_uses_default_file_when_body_is_empty(monkeypatch) -> None:
         end_date=None,
         request_delay_seconds=main_module.settings.request_delay_seconds,
         max_article_fetches=main_module.settings.max_article_fetches,
+        max_listing_pages=main_module.settings.max_listing_pages,
     )
 
 
@@ -165,6 +168,7 @@ def test_scrape_accepts_date_range(monkeypatch) -> None:
         end_date=date(2026, 5, 6),
         request_delay_seconds=main_module.settings.request_delay_seconds,
         max_article_fetches=main_module.settings.max_article_fetches,
+        max_listing_pages=main_module.settings.max_listing_pages,
     )
 
 

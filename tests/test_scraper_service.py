@@ -91,6 +91,15 @@ def test_apply_saci_date_filters_adds_dates_to_query() -> None:
     assert "fim=06%2F05%2F2026" in result
 
 
+def test_apply_saci_pagination_adds_page_parameter() -> None:
+    base_url = "https://www.saci.ufscar.br/servico_clippings?uni=1"
+
+    result = scraper_module.apply_saci_pagination(base_url, 3)
+
+    assert "uni=1" in result
+    assert "pag=3" in result
+
+
 def test_build_name_variants_includes_abbreviation_forms() -> None:
     variants = scraper_module.build_name_variants("Heber Lombardi de Carvalho")
 
@@ -326,3 +335,69 @@ async def test_scrape_news_respects_max_article_fetches(monkeypatch) -> None:
 
     assert results == []
     assert fetch_calls["count"] == 1
+
+
+@pytest.mark.asyncio
+async def test_scrape_news_navigates_across_pagination(monkeypatch) -> None:
+    listing_page = FakePage(
+        iframe_src="https://www.saci.ufscar.br/servico_clippings?uni=1"
+    )
+    iframe_page = FakePage(iframe_src=None)
+    article_page = FakePage(iframe_src=None)
+
+    context = FakeContext([listing_page, iframe_page, article_page])
+    browser = FakeBrowser(context)
+
+    monkeypatch.setattr(
+        scraper_module,
+        "async_playwright",
+        lambda: FakePlaywrightManager(browser),
+    )
+    async def fake_extract_saci_pagination_numbers(_page, max_listing_pages: int):
+        if max_listing_pages >= 3:
+            return [2, 3]
+        return []
+
+    monkeypatch.setattr(
+        scraper_module,
+        "extract_saci_pagination_numbers",
+        fake_extract_saci_pagination_numbers,
+    )
+
+    async def fake_extract_candidate_news(_page, source_url: str):
+        if "pag=2" in source_url:
+            return [
+                {
+                    "title": "Noticia pag 2",
+                    "url": "https://www.saci.ufscar.br/servico_clipping?id=2",
+                    "summary": None,
+                }
+            ]
+        if "pag=3" in source_url:
+            return [
+                {
+                    "title": "Noticia pag 3",
+                    "url": "https://www.saci.ufscar.br/servico_clipping?id=3",
+                    "summary": None,
+                }
+            ]
+        return []
+
+    monkeypatch.setattr(
+        scraper_module, "extract_candidate_news", fake_extract_candidate_news
+    )
+
+    results = await scraper_module.scrape_news(
+        names=["Noticia"],
+        source_url="https://www.ccs.ufscar.br/clipping",
+        limit=10,
+        timeout=20.0,
+        request_delay_seconds=0,
+        max_listing_pages=3,
+        max_article_fetches=0,
+    )
+
+    assert len(iframe_page.goto_calls) == 3
+    assert "pag=2" in iframe_page.goto_calls[1]
+    assert "pag=3" in iframe_page.goto_calls[2]
+    assert len(results) == 2

@@ -97,6 +97,7 @@ Voce pode ajustar esse comportamento no `.env`:
 ```env
 CLIPPING_REQUEST_DELAY_SECONDS=0.35
 CLIPPING_MAX_ARTICLE_FETCHES=200
+CLIPPING_MAX_LISTING_PAGES=20
 ```
 
 Exemplo com um nome:
