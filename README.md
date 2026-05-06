@@ -17,6 +17,29 @@ Lista inicial de nomes:
 - Playwright + BeautifulSoup
 - Docker Compose (fluxo recomendado)
 
+## MCPs no VS Code (Playwright e Context7)
+
+Este repositorio inclui configuracao local em `.vscode/mcp.json` com dois servidores:
+
+- `playwright` via `@playwright/mcp`
+- `context7` via `@upstash/context7-mcp`
+
+Pre-requisitos no host:
+
+- Node.js 18+
+- `npx` disponivel
+
+Passos:
+
+1. Abra o projeto no VS Code.
+2. Confirme que o arquivo `.vscode/mcp.json` esta presente.
+3. Reinicie a janela do VS Code (`Developer: Reload Window`) para carregar os MCPs.
+
+Opcional (Context7 com pesquisa aprofundada):
+
+- Defina `CONTEXT7_API_KEY` no ambiente do VS Code para habilitar `researchMode`.
+- Sem essa chave, o Context7 ainda funciona no modo padrao.
+
 ## Como rodar (recomendado: Docker Compose)
 
 ```bash
