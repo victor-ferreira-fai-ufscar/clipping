@@ -12,7 +12,7 @@ class Settings(BaseSettings):
     request_timeout: float = 20.0
     request_delay_seconds: float = 0.35
     max_article_fetches: int = 200
-    max_listing_pages: int = 20
+    max_listing_pages: int | None = None
     names_file: Path = PROJECT_ROOT / "assets" / "nomes.csv"
 
     model_config = SettingsConfigDict(

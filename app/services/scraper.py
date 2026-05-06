@@ -16,7 +16,7 @@ from app.schemas import NewsItem
 STOPWORDS = {"de", "da", "do", "das", "dos", "e"}
 REQUEST_DELAY_SECONDS = 0.35
 MAX_ARTICLE_FETCHES_MULTIPLIER = 4
-MAX_LISTING_PAGES = 20
+MAX_LISTING_PAGES: int | None = None
 
 
 def normalize_text(value: str) -> str:
@@ -248,7 +248,7 @@ async def scrape_news(
     end_date: date | None = None,
     request_delay_seconds: float = REQUEST_DELAY_SECONDS,
     max_article_fetches: int | None = None,
-    max_listing_pages: int = MAX_LISTING_PAGES,
+    max_listing_pages: int | None = MAX_LISTING_PAGES,
 ) -> list[NewsItem]:
     timeout_ms = int(timeout * 1000)
     max_fetches = max_article_fetches or max(limit * MAX_ARTICLE_FETCHES_MULTIPLIER, 20)
@@ -297,7 +297,8 @@ async def scrape_news(
                     page_1_candidates = await extract_candidate_news(iframe_page, iframe_url)
                     candidates.extend(page_1_candidates)
 
-                    for page_number in range(2, max_listing_pages + 1):
+                    page_number = 2
+                    while max_listing_pages is None or page_number <= max_listing_pages:
                         paginated_url = apply_saci_pagination(iframe_url, page_number)
                         await iframe_page.goto(
                             paginated_url,
@@ -308,6 +309,7 @@ async def scrape_news(
                         if not page_candidates:
                             break
                         candidates.extend(page_candidates)
+                        page_number += 1
                         if request_delay_seconds > 0:
                             await asyncio.sleep(request_delay_seconds)
                 finally:
