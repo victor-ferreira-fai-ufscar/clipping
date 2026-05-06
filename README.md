@@ -92,6 +92,13 @@ Opcionalmente, voce pode filtrar por periodo com `start_date` e `end_date` (form
 O cruzamento de nomes considera nome completo e abreviacoes comuns (por exemplo, iniciais + sobrenome).
 Para reduzir risco de rate limit, o scraper aplica um pequeno intervalo entre acessos de conteudo e limita o total de paginas de noticia abertas por execucao.
 
+Voce pode ajustar esse comportamento no `.env`:
+
+```env
+CLIPPING_REQUEST_DELAY_SECONDS=0.35
+CLIPPING_MAX_ARTICLE_FETCHES=200
+```
+
 Exemplo com um nome:
 
 ```bash

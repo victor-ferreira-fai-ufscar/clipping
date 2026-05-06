@@ -128,6 +128,8 @@ async def run_scrape(
             timeout=settings.request_timeout,
             start_date=start_date,
             end_date=end_date,
+            request_delay_seconds=settings.request_delay_seconds,
+            max_article_fetches=settings.max_article_fetches,
         )
     except FileNotFoundError as error:
         raise HTTPException(status_code=500, detail=str(error)) from error
@@ -165,6 +167,8 @@ async def run_scrape_aggregate(
             timeout=settings.request_timeout,
             start_date=start_date,
             end_date=end_date,
+            request_delay_seconds=settings.request_delay_seconds,
+            max_article_fetches=settings.max_article_fetches,
         )
     except FileNotFoundError as error:
         raise HTTPException(status_code=500, detail=str(error)) from error
