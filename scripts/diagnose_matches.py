@@ -1,9 +1,12 @@
 """
-Diagnostic script: scrape SACI clipping with all names from nomes.csv
+Diagnostic script: scrape SACI clipping with names from a CSV file
 and print which names matched which articles. Run with:
 
-    uv run python scripts/diagnose_matches.py
+    uv run python scripts/diagnose_matches.py [path/to/names.csv]
+
+Defaults to assets/nomes.csv if no argument is given.
 """
+
 import asyncio
 import csv
 import sys
@@ -15,8 +18,10 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 from app.services.scraper import build_name_variants, scrape_news
 from app.core.settings import settings
 
-NAMES_FILE = Path(__file__).parent.parent / "assets" / "nomes.csv"
+DEFAULT_NAMES_FILE = Path(__file__).parent.parent / "assets" / "nomes.csv"
 SOURCE_URL = "https://www.ccs.ufscar.br/clipping"
+
+NAMES_FILE = Path(sys.argv[1]) if len(sys.argv) > 1 else DEFAULT_NAMES_FILE
 
 
 def load_names(path: Path) -> list[str]:
@@ -27,8 +32,7 @@ def load_names(path: Path) -> list[str]:
             h.strip().lower() in ("nome", "name") for h in reader.fieldnames
         ):
             col = next(
-                h for h in reader.fieldnames
-                if h.strip().lower() in ("nome", "name")
+                h for h in reader.fieldnames if h.strip().lower() in ("nome", "name")
             )
             for row in reader:
                 val = (row.get(col) or "").strip()
@@ -55,10 +59,12 @@ async def main() -> None:
     print()
     print("=" * 60)
     print(f"Scraping {SOURCE_URL} ...")
-    print(f"Settings: timeout={settings.request_timeout}s, "
-          f"delay={settings.request_delay_seconds}s, "
-          f"max_article_fetches={settings.max_article_fetches}, "
-          f"max_listing_pages={settings.max_listing_pages}")
+    print(
+        f"Settings: timeout={settings.request_timeout}s, "
+        f"delay={settings.request_delay_seconds}s, "
+        f"max_article_fetches={settings.max_article_fetches}, "
+        f"max_listing_pages={settings.max_listing_pages}"
+    )
     print("=" * 60)
     print()
 
