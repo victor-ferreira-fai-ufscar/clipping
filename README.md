@@ -8,7 +8,7 @@ Fonte principal usada neste inicio:
 
 Lista inicial de nomes:
 
-- [50 nomes de docentes](./docs/50-nomes-docentes.csv)
+- [Lista de nomes](./assets/nomes.csv)
 
 ## Stack
 
@@ -77,4 +77,4 @@ curl -X POST "http://localhost:8000/scrape" \
  }'
 ```
 
-Se `names` nao for enviado no corpo, o endpoint usa automaticamente o arquivo `docs/50-nomes-docentes.csv`.
+Se `names` nao for enviado no corpo, o endpoint usa automaticamente o arquivo `assets/nomes.csv`.

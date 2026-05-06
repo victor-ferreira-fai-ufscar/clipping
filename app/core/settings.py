@@ -10,7 +10,7 @@ class Settings(BaseSettings):
     clipping_url: str = "https://www.ccs.ufscar.br/clipping"
     default_limit: int = 50
     request_timeout: float = 20.0
-    names_file: Path = PROJECT_ROOT / "docs" / "50-nomes-docentes.csv"
+    names_file: Path = PROJECT_ROOT / "assets" / "nomes.csv"
 
     model_config = SettingsConfigDict(
         env_file=".env",
