@@ -42,8 +42,18 @@ Opcional (Context7 com pesquisa aprofundada):
 
 ## Como rodar (recomendado: Docker Compose)
 
+Suba tudo com hot reload usando um unico comando:
+
 ```bash
 docker compose up --build
+```
+
+Sempre que voce alterar arquivos em `app/`, o servidor recarrega automaticamente.
+
+Para parar:
+
+```bash
+docker compose down
 ```
 
 API disponivel em:

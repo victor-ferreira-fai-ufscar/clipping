@@ -2,17 +2,19 @@ FROM python:3.12-slim
 
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
-    UV_LINK_MODE=copy
+    UV_LINK_MODE=copy \
+    UV_PROJECT_ENVIRONMENT=/opt/venv \
+    PATH="/opt/venv/bin:$PATH"
 
 WORKDIR /app
 
 RUN pip install --no-cache-dir uv
 
-COPY pyproject.toml README.md ./
+COPY pyproject.toml uv.lock README.md ./
 COPY app ./app
-COPY docs ./docs
+COPY assets ./assets
 
-RUN uv sync --no-dev && uv run playwright install --with-deps chromium
+RUN uv sync --frozen --no-dev && uv run playwright install --with-deps chromium
 
 EXPOSE 8000
 
