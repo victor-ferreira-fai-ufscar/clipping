@@ -1,6 +1,8 @@
 from __future__ import annotations
 
+import asyncio
 from datetime import date
+import re
 import unicodedata
 from urllib.parse import parse_qsl, urlencode, urljoin, urlparse, urlunparse
 
@@ -11,13 +13,62 @@ from playwright.async_api import async_playwright
 
 from app.schemas import NewsItem
 
+STOPWORDS = {"de", "da", "do", "das", "dos", "e"}
+REQUEST_DELAY_SECONDS = 0.35
+MAX_ARTICLE_FETCHES_MULTIPLIER = 4
+
 
 def normalize_text(value: str) -> str:
     normalized = unicodedata.normalize("NFKD", value)
     without_accents = "".join(
         char for char in normalized if not unicodedata.combining(char)
     )
-    return without_accents.casefold().strip()
+    cleaned = re.sub(r"[^a-zA-Z0-9\s]", " ", without_accents.casefold())
+    return re.sub(r"\s+", " ", cleaned).strip()
+
+
+def tokenize(value: str) -> list[str]:
+    return [token for token in normalize_text(value).split(" ") if token]
+
+
+def build_name_variants(name: str) -> set[str]:
+    tokens = tokenize(name)
+    if not tokens:
+        return set()
+
+    significant_tokens = [token for token in tokens if token not in STOPWORDS]
+    if not significant_tokens:
+        significant_tokens = tokens
+
+    variants = {
+        " ".join(tokens),
+        " ".join(significant_tokens),
+        f"{significant_tokens[0]} {significant_tokens[-1]}",
+    }
+
+    initials = [token[0] for token in significant_tokens[:-1] if token]
+    if len(initials) >= 2:
+        variants.add(f"{' '.join(initials)} {significant_tokens[-1]}")
+    if initials:
+        variants.add(f"{initials[0]} {significant_tokens[-1]}")
+
+    return {variant.strip() for variant in variants if variant.strip()}
+
+
+def match_names_in_text(
+    names: list[str],
+    searchable_text: str,
+    name_variants: dict[str, set[str]],
+) -> list[str]:
+    normalized_searchable_text = normalize_text(searchable_text)
+
+    matched_names: list[str] = []
+    for name in names:
+        variants = name_variants.get(name, set())
+        if any(variant and variant in normalized_searchable_text for variant in variants):
+            matched_names.append(name)
+
+    return matched_names
 
 
 async def extract_candidate_news(
@@ -151,13 +202,17 @@ async def scrape_news(
     timeout: float,
     start_date: date | None = None,
     end_date: date | None = None,
+    request_delay_seconds: float = REQUEST_DELAY_SECONDS,
+    max_article_fetches: int | None = None,
 ) -> list[NewsItem]:
     timeout_ms = int(timeout * 1000)
-
-    normalized_names = {name: normalize_text(name) for name in names}
+    max_fetches = max_article_fetches or max(limit * MAX_ARTICLE_FETCHES_MULTIPLIER, 20)
+    name_variants = {name: build_name_variants(name) for name in names}
 
     results: list[NewsItem] = []
     seen: set[tuple[str, str]] = set()
+    article_text_cache: dict[str, str] = {}
+    article_fetch_count = 0
 
     try:
         async with async_playwright() as playwright:
@@ -223,31 +278,37 @@ async def scrape_news(
                         continue
                     seen.add(dedupe_key)
 
-                    searchable_text = normalize_text(
+                    searchable_text = (
                         f"{title} {candidate['summary'] or ''}"
                     )
-                    matched_names = [
-                        original_name
-                        for original_name, normalized_name in normalized_names.items()
-                        if normalized_name and normalized_name in searchable_text
-                    ]
+                    matched_names = match_names_in_text(
+                        names=names,
+                        searchable_text=searchable_text,
+                        name_variants=name_variants,
+                    )
 
-                    if not matched_names:
-                        article_text = await try_fetch_article_text(
-                            article_page,
-                            url,
-                            timeout_ms,
-                        )
+                    if not matched_names and article_fetch_count < max_fetches:
+                        article_text = article_text_cache.get(url)
+                        if article_text is None:
+                            article_text = await try_fetch_article_text(
+                                article_page,
+                                url,
+                                timeout_ms,
+                            )
+                            article_text_cache[url] = article_text
+                            article_fetch_count += 1
+                            if request_delay_seconds > 0:
+                                await asyncio.sleep(request_delay_seconds)
+
                         if article_text:
-                            searchable_text = normalize_text(
+                            searchable_text = (
                                 f"{title} {candidate['summary'] or ''} {article_text}"
                             )
-                            matched_names = [
-                                original_name
-                                for original_name, normalized_name in normalized_names.items()
-                                if normalized_name
-                                and normalized_name in searchable_text
-                            ]
+                            matched_names = match_names_in_text(
+                                names=names,
+                                searchable_text=searchable_text,
+                                name_variants=name_variants,
+                            )
 
                     if not matched_names:
                         continue

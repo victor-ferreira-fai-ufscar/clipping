@@ -89,6 +89,9 @@ O endpoint aceita tres formas principais de uso:
 
 Opcionalmente, voce pode filtrar por periodo com `start_date` e `end_date` (formato `YYYY-MM-DD`).
 
+O cruzamento de nomes considera nome completo e abreviacoes comuns (por exemplo, iniciais + sobrenome).
+Para reduzir risco de rate limit, o scraper aplica um pequeno intervalo entre acessos de conteudo e limita o total de paginas de noticia abertas por execucao.
+
 Exemplo com um nome:
 
 ```bash

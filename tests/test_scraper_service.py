@@ -91,6 +91,15 @@ def test_apply_saci_date_filters_adds_dates_to_query() -> None:
     assert "fim=06%2F05%2F2026" in result
 
 
+def test_build_name_variants_includes_abbreviation_forms() -> None:
+    variants = scraper_module.build_name_variants("Heber Lombardi de Carvalho")
+
+    assert "heber lombardi de carvalho" in variants
+    assert "heber carvalho" in variants
+    assert "h l carvalho" in variants
+    assert "h carvalho" in variants
+
+
 @pytest.mark.asyncio
 async def test_scrape_news_matches_name_in_title(monkeypatch) -> None:
     listing_page = FakePage(iframe_src=None)
@@ -123,6 +132,7 @@ async def test_scrape_news_matches_name_in_title(monkeypatch) -> None:
         source_url="https://www.ccs.ufscar.br/clipping",
         limit=10,
         timeout=20.0,
+        request_delay_seconds=0,
     )
 
     assert len(results) == 1
@@ -171,6 +181,7 @@ async def test_scrape_news_uses_article_text_when_title_has_no_match(
         source_url="https://www.ccs.ufscar.br/clipping",
         limit=10,
         timeout=20.0,
+        request_delay_seconds=0,
     )
 
     assert len(results) == 1
@@ -216,8 +227,102 @@ async def test_scrape_news_applies_date_filter_to_iframe_url(monkeypatch) -> Non
         timeout=20.0,
         start_date=date(2026, 5, 1),
         end_date=date(2026, 5, 6),
+        request_delay_seconds=0,
     )
 
     assert len(iframe_page.goto_calls) == 1
     assert "inicio=01%2F05%2F2026" in iframe_page.goto_calls[0]
     assert "fim=06%2F05%2F2026" in iframe_page.goto_calls[0]
+
+
+@pytest.mark.asyncio
+async def test_scrape_news_matches_abbreviation_in_article_title(monkeypatch) -> None:
+    listing_page = FakePage(iframe_src=None)
+    article_page = FakePage(iframe_src=None)
+
+    context = FakeContext([listing_page, article_page])
+    browser = FakeBrowser(context)
+
+    monkeypatch.setattr(
+        scraper_module,
+        "async_playwright",
+        lambda: FakePlaywrightManager(browser),
+    )
+
+    async def fake_extract_candidate_news(_page, _source_url: str):
+        return [
+            {
+                "title": "H. L. Carvalho participa de evento internacional",
+                "url": "https://www.saci.ufscar.br/servico_clipping?id=777",
+                "summary": None,
+            }
+        ]
+
+    monkeypatch.setattr(
+        scraper_module, "extract_candidate_news", fake_extract_candidate_news
+    )
+
+    results = await scraper_module.scrape_news(
+        names=["Heber Lombardi de Carvalho"],
+        source_url="https://www.ccs.ufscar.br/clipping",
+        limit=10,
+        timeout=20.0,
+        request_delay_seconds=0,
+    )
+
+    assert len(results) == 1
+    assert results[0].matched_names == ["Heber Lombardi de Carvalho"]
+
+
+@pytest.mark.asyncio
+async def test_scrape_news_respects_max_article_fetches(monkeypatch) -> None:
+    listing_page = FakePage(iframe_src=None)
+    article_page = FakePage(iframe_src=None)
+
+    context = FakeContext([listing_page, article_page])
+    browser = FakeBrowser(context)
+
+    monkeypatch.setattr(
+        scraper_module,
+        "async_playwright",
+        lambda: FakePlaywrightManager(browser),
+    )
+
+    async def fake_extract_candidate_news(_page, _source_url: str):
+        return [
+            {
+                "title": "Noticia sem nome 1",
+                "url": "https://www.saci.ufscar.br/servico_clipping?id=1",
+                "summary": None,
+            },
+            {
+                "title": "Noticia sem nome 2",
+                "url": "https://www.saci.ufscar.br/servico_clipping?id=2",
+                "summary": None,
+            },
+        ]
+
+    fetch_calls = {"count": 0}
+
+    async def fake_fetch_article_text(_page, _url: str, _timeout_ms: int) -> str:
+        fetch_calls["count"] += 1
+        return ""
+
+    monkeypatch.setattr(
+        scraper_module, "extract_candidate_news", fake_extract_candidate_news
+    )
+    monkeypatch.setattr(
+        scraper_module, "try_fetch_article_text", fake_fetch_article_text
+    )
+
+    results = await scraper_module.scrape_news(
+        names=["Heber Lombardi de Carvalho"],
+        source_url="https://www.ccs.ufscar.br/clipping",
+        limit=10,
+        timeout=20.0,
+        request_delay_seconds=0,
+        max_article_fetches=1,
+    )
+
+    assert results == []
+    assert fetch_calls["count"] == 1
