@@ -237,6 +237,7 @@ async def test_scrape_news_applies_date_filter_to_iframe_url(monkeypatch) -> Non
         start_date=date(2026, 5, 1),
         end_date=date(2026, 5, 6),
         request_delay_seconds=0,
+        max_listing_pages=1,
     )
 
     assert len(iframe_page.goto_calls) == 1
@@ -353,16 +354,6 @@ async def test_scrape_news_navigates_across_pagination(monkeypatch) -> None:
         "async_playwright",
         lambda: FakePlaywrightManager(browser),
     )
-    async def fake_extract_saci_pagination_numbers(_page, max_listing_pages: int):
-        if max_listing_pages >= 3:
-            return [2, 3]
-        return []
-
-    monkeypatch.setattr(
-        scraper_module,
-        "extract_saci_pagination_numbers",
-        fake_extract_saci_pagination_numbers,
-    )
 
     async def fake_extract_candidate_news(_page, source_url: str):
         if "pag=2" in source_url:
@@ -381,6 +372,9 @@ async def test_scrape_news_navigates_across_pagination(monkeypatch) -> None:
                     "summary": None,
                 }
             ]
+        # page 4+ returns empty → early stop
+        if "pag=" in source_url:
+            return []
         return []
 
     monkeypatch.setattr(
@@ -393,11 +387,12 @@ async def test_scrape_news_navigates_across_pagination(monkeypatch) -> None:
         limit=10,
         timeout=20.0,
         request_delay_seconds=0,
-        max_listing_pages=3,
+        max_listing_pages=10,
         max_article_fetches=0,
     )
 
-    assert len(iframe_page.goto_calls) == 3
     assert "pag=2" in iframe_page.goto_calls[1]
     assert "pag=3" in iframe_page.goto_calls[2]
+    # stopped at pag=4 (empty), so only 3 iframe.goto calls: pag=1, pag=2, pag=3, pag=4(empty stop)
+    assert len(iframe_page.goto_calls) == 4
     assert len(results) == 2

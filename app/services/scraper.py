@@ -199,9 +199,9 @@ async def extract_saci_pagination_numbers(
             continue
 
         try:
-            page_str = dict(parse_qsl(urlparse(href).query, keep_blank_values=True)).get(
-                "pag"
-            )
+            page_str = dict(
+                parse_qsl(urlparse(href).query, keep_blank_values=True)
+            ).get("pag")
             if not page_str:
                 continue
 
@@ -294,24 +294,20 @@ async def scrape_news(
                         wait_until="domcontentloaded",
                         timeout=timeout_ms,
                     )
-                    candidates.extend(
-                        await extract_candidate_news(iframe_page, iframe_url)
-                    )
+                    page_1_candidates = await extract_candidate_news(iframe_page, iframe_url)
+                    candidates.extend(page_1_candidates)
 
-                    page_numbers = await extract_saci_pagination_numbers(
-                        iframe_page,
-                        max_listing_pages=max_listing_pages,
-                    )
-                    for page_number in page_numbers:
+                    for page_number in range(2, max_listing_pages + 1):
                         paginated_url = apply_saci_pagination(iframe_url, page_number)
                         await iframe_page.goto(
                             paginated_url,
                             wait_until="domcontentloaded",
                             timeout=timeout_ms,
                         )
-                        candidates.extend(
-                            await extract_candidate_news(iframe_page, paginated_url)
-                        )
+                        page_candidates = await extract_candidate_news(iframe_page, paginated_url)
+                        if not page_candidates:
+                            break
+                        candidates.extend(page_candidates)
                         if request_delay_seconds > 0:
                             await asyncio.sleep(request_delay_seconds)
                 finally:
