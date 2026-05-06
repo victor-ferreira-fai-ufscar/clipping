@@ -114,7 +114,9 @@ async def test_scrape_news_matches_name_in_title(monkeypatch) -> None:
             }
         ]
 
-    monkeypatch.setattr(scraper_module, "extract_candidate_news", fake_extract_candidate_news)
+    monkeypatch.setattr(
+        scraper_module, "extract_candidate_news", fake_extract_candidate_news
+    )
 
     results = await scraper_module.scrape_news(
         names=["Cátedra Sistemas Complexos e suas Complexidades"],
@@ -124,11 +126,15 @@ async def test_scrape_news_matches_name_in_title(monkeypatch) -> None:
     )
 
     assert len(results) == 1
-    assert results[0].matched_names == ["Cátedra Sistemas Complexos e suas Complexidades"]
+    assert results[0].matched_names == [
+        "Cátedra Sistemas Complexos e suas Complexidades"
+    ]
 
 
 @pytest.mark.asyncio
-async def test_scrape_news_uses_article_text_when_title_has_no_match(monkeypatch) -> None:
+async def test_scrape_news_uses_article_text_when_title_has_no_match(
+    monkeypatch,
+) -> None:
     listing_page = FakePage(iframe_src=None)
     article_page = FakePage(iframe_src=None)
 
@@ -153,8 +159,12 @@ async def test_scrape_news_uses_article_text_when_title_has_no_match(monkeypatch
     async def fake_fetch_article_text(_page, _url: str, _timeout_ms: int) -> str:
         return "Texto completo com Heber Lombardi de Carvalho na materia."
 
-    monkeypatch.setattr(scraper_module, "extract_candidate_news", fake_extract_candidate_news)
-    monkeypatch.setattr(scraper_module, "try_fetch_article_text", fake_fetch_article_text)
+    monkeypatch.setattr(
+        scraper_module, "extract_candidate_news", fake_extract_candidate_news
+    )
+    monkeypatch.setattr(
+        scraper_module, "try_fetch_article_text", fake_fetch_article_text
+    )
 
     results = await scraper_module.scrape_news(
         names=["Heber Lombardi de Carvalho"],
@@ -169,7 +179,9 @@ async def test_scrape_news_uses_article_text_when_title_has_no_match(monkeypatch
 
 @pytest.mark.asyncio
 async def test_scrape_news_applies_date_filter_to_iframe_url(monkeypatch) -> None:
-    listing_page = FakePage(iframe_src="https://www.saci.ufscar.br/servico_clippings?uni=1")
+    listing_page = FakePage(
+        iframe_src="https://www.saci.ufscar.br/servico_clippings?uni=1"
+    )
     iframe_page = FakePage(iframe_src=None)
     article_page = FakePage(iframe_src=None)
 
@@ -193,7 +205,9 @@ async def test_scrape_news_applies_date_filter_to_iframe_url(monkeypatch) -> Non
             ]
         return []
 
-    monkeypatch.setattr(scraper_module, "extract_candidate_news", fake_extract_candidate_news)
+    monkeypatch.setattr(
+        scraper_module, "extract_candidate_news", fake_extract_candidate_news
+    )
 
     await scraper_module.scrape_news(
         names=["Noticia do clipping"],

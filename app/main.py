@@ -181,7 +181,9 @@ async def run_scrape_aggregate(
 
     people = [
         PersonMatchCount(name=name, news_count=news_count)
-        for name, news_count in sorted(counts.items(), key=lambda value: (-value[1], value[0]))
+        for name, news_count in sorted(
+            counts.items(), key=lambda value: (-value[1], value[0])
+        )
     ]
 
     return ScrapeAggregateResponse(
