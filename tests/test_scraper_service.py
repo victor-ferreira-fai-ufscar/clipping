@@ -106,7 +106,7 @@ def test_build_name_variants_includes_abbreviation_forms() -> None:
     assert "heber lombardi de carvalho" in variants
     assert "heber carvalho" in variants
     assert "h l carvalho" in variants
-    assert "h carvalho" in variants
+    assert "h carvalho" not in variants
 
 
 @pytest.mark.asyncio

@@ -50,8 +50,6 @@ def build_name_variants(name: str) -> set[str]:
     initials = [token[0] for token in significant_tokens[:-1] if token]
     if len(initials) >= 2:
         variants.add(f"{' '.join(initials)} {significant_tokens[-1]}")
-    if initials:
-        variants.add(f"{initials[0]} {significant_tokens[-1]}")
 
     return {variant.strip() for variant in variants if variant.strip()}
 
