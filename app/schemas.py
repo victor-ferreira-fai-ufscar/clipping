@@ -64,3 +64,15 @@ class ScrapeResponse(BaseModel):
     total_collected: int
     total_matched: int
     items: list[NewsItem]
+
+
+class PersonMatchCount(BaseModel):
+    name: str
+    news_count: int
+
+
+class ScrapeAggregateResponse(BaseModel):
+    source_url: str
+    total_news: int
+    total_people_matched: int
+    people: list[PersonMatchCount]

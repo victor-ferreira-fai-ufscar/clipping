@@ -2,7 +2,12 @@ from fastapi import Body, FastAPI, HTTPException
 from scalar_fastapi import get_scalar_api_reference
 
 from app.core.settings import settings
-from app.schemas import ScrapeRequest, ScrapeResponse
+from app.schemas import (
+    PersonMatchCount,
+    ScrapeAggregateResponse,
+    ScrapeRequest,
+    ScrapeResponse,
+)
 from app.services.names_loader import load_names
 from app.services.scraper import scrape_news
 
@@ -49,6 +54,16 @@ def healthcheck() -> dict[str, str]:
     return {"status": "ok"}
 
 
+def resolve_scrape_parameters(
+    request: ScrapeRequest | None,
+) -> tuple[list[str], str, int]:
+    parsed_request = request or ScrapeRequest()
+    names = parsed_request.names or load_names(settings.names_file)
+    source_url = parsed_request.source_url or settings.clipping_url
+    limit = parsed_request.limit or settings.default_limit
+    return names, source_url, limit
+
+
 @app.post(
     "/scrape",
     response_model=ScrapeResponse,
@@ -92,10 +107,7 @@ async def run_scrape(
         },
     ),
 ) -> ScrapeResponse:
-    request = request or ScrapeRequest()
-    names = request.names or load_names(settings.names_file)
-    source_url = request.source_url or settings.clipping_url
-    limit = request.limit or settings.default_limit
+    names, source_url, limit = resolve_scrape_parameters(request)
 
     try:
         items = await scrape_news(
@@ -114,4 +126,52 @@ async def run_scrape(
         total_collected=len(items),
         total_matched=len(items),
         items=items,
+    )
+
+
+@app.post(
+    "/scrape/aggregate",
+    response_model=ScrapeAggregateResponse,
+    tags=["Clipping"],
+    summary="Agrega noticias por pessoa",
+    description=(
+        "Usa o mesmo payload de `/scrape` e retorna a quantidade de noticias por pessoa encontrada no clipping."
+    ),
+    response_description="Resumo agregado de noticias por nome.",
+)
+async def run_scrape_aggregate(
+    request: ScrapeRequest | None = Body(default=None),
+) -> ScrapeAggregateResponse:
+    names, source_url, limit = resolve_scrape_parameters(request)
+
+    try:
+        items = await scrape_news(
+            names=names,
+            source_url=source_url,
+            limit=limit,
+            timeout=settings.request_timeout,
+        )
+    except FileNotFoundError as error:
+        raise HTTPException(status_code=500, detail=str(error)) from error
+    except RuntimeError as error:
+        raise HTTPException(status_code=502, detail=str(error)) from error
+
+    counts: dict[str, int] = {name: 0 for name in names}
+
+    for item in items:
+        for matched_name in set(item.matched_names):
+            if matched_name not in counts:
+                counts[matched_name] = 0
+            counts[matched_name] += 1
+
+    people = [
+        PersonMatchCount(name=name, news_count=news_count)
+        for name, news_count in sorted(counts.items(), key=lambda value: (-value[1], value[0]))
+    ]
+
+    return ScrapeAggregateResponse(
+        source_url=source_url,
+        total_news=len(items),
+        total_people_matched=sum(1 for person in people if person.news_count > 0),
+        people=people,
     )

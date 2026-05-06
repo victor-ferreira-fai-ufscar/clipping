@@ -66,6 +66,7 @@ uv run uvicorn app.main:app --reload
 
 - `GET /health`
 - `POST /scrape`
+- `POST /scrape/aggregate`
 - `GET /scalar`
 
 ## Como funciona o `POST /scrape`
@@ -113,3 +114,18 @@ curl -X POST "http://localhost:8000/scrape" \
 Se `name` e `names` nao forem enviados, o endpoint usa automaticamente o arquivo `assets/nomes.csv`.
 
 Se `name` e `names` forem enviados juntos, o valor de `name` e somado a lista final antes da busca.
+
+## Como funciona o `POST /scrape/aggregate`
+
+Recebe o mesmo payload de `POST /scrape` e retorna um resumo por pessoa com quantidade de noticias encontradas.
+
+Exemplo:
+
+```bash
+curl -X POST "http://localhost:8000/scrape/aggregate" \
+ -H "Content-Type: application/json" \
+ -d '{
+  "names": ["Heber Lombardi de Carvalho", "Alexandra Sanches"],
+  "limit": 20
+ }'
+```

@@ -7,6 +7,7 @@ from fastapi.testclient import TestClient
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 import app.main as main_module
+from app.schemas import NewsItem
 
 client = TestClient(main_module.app)
 
@@ -95,6 +96,39 @@ def test_scrape_uses_default_file_when_body_is_empty(monkeypatch) -> None:
     )
 
 
+def test_scrape_aggregate_counts_news_by_person(monkeypatch) -> None:
+    fake_items = [
+        NewsItem(
+            title="Noticia 1",
+            url="https://example.com/1",
+            matched_names=["Heber Lombardi de Carvalho", "Alexandra Sanches"],
+        ),
+        NewsItem(
+            title="Noticia 2",
+            url="https://example.com/2",
+            matched_names=["Heber Lombardi de Carvalho"],
+        ),
+    ]
+
+    fake_scrape = AsyncMock(return_value=fake_items)
+    monkeypatch.setattr(main_module, "scrape_news", fake_scrape)
+
+    response = client.post(
+        "/scrape/aggregate",
+        json={"names": ["Heber Lombardi de Carvalho", "Alexandra Sanches"]},
+    )
+
+    assert response.status_code == 200
+    payload = response.json()
+
+    assert payload["total_news"] == 2
+    assert payload["total_people_matched"] == 2
+    assert payload["people"] == [
+        {"name": "Heber Lombardi de Carvalho", "news_count": 2},
+        {"name": "Alexandra Sanches", "news_count": 1},
+    ]
+
+
 def test_openapi_documents_name_modes_and_examples() -> None:
     response = client.get("/openapi.json")
 
@@ -119,3 +153,4 @@ def test_openapi_documents_name_modes_and_examples() -> None:
         "defaultFile"
         in scrape_operation["requestBody"]["content"]["application/json"]["examples"]
     )
+    assert "/scrape/aggregate" in payload["paths"]
