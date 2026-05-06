@@ -129,6 +129,7 @@ async def run_scrape(
             start_date=start_date,
             end_date=end_date,
             request_delay_seconds=settings.request_delay_seconds,
+            headless=settings.headless,
             max_article_fetches=settings.max_article_fetches,
             max_listing_pages=settings.max_listing_pages,
         )
@@ -169,6 +170,7 @@ async def run_scrape_aggregate(
             start_date=start_date,
             end_date=end_date,
             request_delay_seconds=settings.request_delay_seconds,
+            headless=settings.headless,
             max_article_fetches=settings.max_article_fetches,
             max_listing_pages=settings.max_listing_pages,
         )

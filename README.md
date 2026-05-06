@@ -95,10 +95,15 @@ Para reduzir risco de rate limit, o scraper aplica um pequeno intervalo entre ac
 Voce pode ajustar esse comportamento no `.env`:
 
 ```env
+CLIPPING_HEADLESS=true
 CLIPPING_REQUEST_DELAY_SECONDS=0.35
 CLIPPING_MAX_ARTICLE_FETCHES=200
-CLIPPING_MAX_LISTING_PAGES=20
+CLIPPING_MAX_LISTING_PAGES=
 ```
+
+- `CLIPPING_HEADLESS=true`: modo padrao para execucao em container/servidor.
+- `CLIPPING_HEADLESS=false`: abre janela do navegador (util para debug local/WSL2).
+- `CLIPPING_MAX_LISTING_PAGES=` vazio ou ausente: percorre todo o historico ate encontrar pagina sem resultados.
 
 Exemplo com um nome:
 

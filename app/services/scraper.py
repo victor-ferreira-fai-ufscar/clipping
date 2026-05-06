@@ -247,6 +247,7 @@ async def scrape_news(
     start_date: date | None = None,
     end_date: date | None = None,
     request_delay_seconds: float = REQUEST_DELAY_SECONDS,
+    headless: bool = True,
     max_article_fetches: int | None = None,
     max_listing_pages: int | None = MAX_LISTING_PAGES,
 ) -> list[NewsItem]:
@@ -261,7 +262,7 @@ async def scrape_news(
 
     try:
         async with async_playwright() as playwright:
-            browser = await playwright.chromium.launch(headless=True)
+            browser = await playwright.chromium.launch(headless=headless)
             context = await browser.new_context(
                 extra_http_headers={
                     "Referer": source_url,

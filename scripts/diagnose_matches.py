@@ -74,6 +74,7 @@ async def main() -> None:
         limit=200,
         timeout=settings.request_timeout,
         request_delay_seconds=settings.request_delay_seconds,
+        headless=settings.headless,
         max_article_fetches=settings.max_article_fetches,
         max_listing_pages=settings.max_listing_pages,
     )
