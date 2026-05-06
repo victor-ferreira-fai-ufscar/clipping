@@ -3,8 +3,8 @@ from __future__ import annotations
 import unicodedata
 from urllib.parse import urljoin
 
-from bs4 import BeautifulSoup
 from playwright.async_api import Error as PlaywrightError
+from playwright.async_api import Page
 from playwright.async_api import TimeoutError as PlaywrightTimeoutError
 from playwright.async_api import async_playwright
 
@@ -19,81 +19,79 @@ def normalize_text(value: str) -> str:
     return without_accents.casefold().strip()
 
 
-def extract_candidate_news(
-    soup: BeautifulSoup, source_url: str
+async def extract_candidate_news(
+    page: Page,
+    source_url: str,
 ) -> list[dict[str, str | None]]:
-    candidates: list[dict[str, str | None]] = []
-
     selectors = ["article", ".post", ".news-item", "li", "div"]
 
     for selector in selectors:
-        for block in soup.select(selector):
-            anchor = block.select_one("a[href]")
-            if not anchor:
-                continue
+        raw_candidates = await page.evaluate(
+            """
+            ({ selector }) => {
+                            const normalize = (value) => (value || '').replace(/\\s+/g, ' ').trim();
+              return Array.from(document.querySelectorAll(selector))
+                .map((block) => {
+                  const anchor = block.querySelector('a[href]');
+                  if (!anchor) return null;
 
-            href = anchor.get("href")
-            if not isinstance(href, str) or not href.strip():
-                continue
+                  const href = anchor.getAttribute('href');
+                  const title = normalize(anchor.textContent);
+                  if (!href || !title) return null;
 
-            title = anchor.get_text(" ", strip=True)
-            if not title:
-                continue
+                  const summaryElement = block.querySelector('p');
+                  const summary = normalize(summaryElement?.textContent || '');
 
-            summary_tag = block.select_one("p")
-            summary = summary_tag.get_text(" ", strip=True) if summary_tag else None
-
-            candidates.append(
-                {
-                    "title": title,
-                    "url": urljoin(source_url, href),
-                    "summary": summary,
-                }
-            )
-
-        if candidates:
-            break
-
-    if candidates:
-        return candidates
-
-    for anchor in soup.select("a[href]"):
-        href = anchor.get("href")
-        if not isinstance(href, str) or not href.strip():
-            continue
-
-        title = anchor.get_text(" ", strip=True)
-        if not title:
-            continue
-
-        candidates.append(
-            {
-                "title": title,
-                "url": urljoin(source_url, href),
-                "summary": None,
+                  return {
+                    title,
+                    href,
+                    summary: summary || null,
+                  };
+                })
+                .filter(Boolean);
             }
+            """,
+            {"selector": selector},
         )
 
-    return candidates
+        candidates = [
+            {
+                "title": item["title"],
+                "url": urljoin(source_url, item["href"]),
+                "summary": item["summary"],
+            }
+            for item in raw_candidates
+        ]
+        if candidates:
+            return candidates
 
+    raw_candidates = await page.evaluate("""
+        () => {
+                    const normalize = (value) => (value || '').replace(/\\s+/g, ' ').trim();
+          return Array.from(document.querySelectorAll('a[href]'))
+            .map((anchor) => {
+              const href = anchor.getAttribute('href');
+              const title = normalize(anchor.textContent);
+              if (!href || !title) return null;
 
-def extract_article_text(html_content: str) -> str:
-    soup = BeautifulSoup(html_content, "html.parser")
+              return {
+                title,
+                href,
+                summary: null,
+              };
+            })
+            .filter(Boolean);
+        }
+        """)
 
-    content_selectors = [
-        "article",
-        "main",
-        ".entry-content",
-        ".post-content",
-        ".content",
+    return [
+        {
+            "title": item["title"],
+            "url": urljoin(source_url, item["href"]),
+            "summary": item["summary"],
+        }
+        for item in raw_candidates
     ]
-
-    for selector in content_selectors:
-        block = soup.select_one(selector)
-        if block:
-            return block.get_text(" ", strip=True)
-
-    return soup.get_text(" ", strip=True)
 
 
 def is_saci_clipping_url(url: str) -> bool:
@@ -104,8 +102,22 @@ def is_saci_clipping_url(url: str) -> bool:
 async def try_fetch_article_text(page, url: str, timeout_ms: int) -> str:
     try:
         await page.goto(url, wait_until="domcontentloaded", timeout=timeout_ms)
-        html_content = await page.content()
-        return extract_article_text(html_content)
+        article_text = await page.evaluate("""
+            () => {
+              const normalize = (value) => (value || '').replace(/\\s+/g, ' ').trim();
+              const selectors = ['article', 'main', '.entry-content', '.post-content', '.content'];
+
+              for (const selector of selectors) {
+                const block = document.querySelector(selector);
+                if (block) {
+                  return normalize(block.textContent);
+                }
+              }
+
+              return normalize(document.body?.textContent || '');
+            }
+            """)
+        return article_text
     except PlaywrightTimeoutError:
         return ""
     except PlaywrightError:
@@ -141,13 +153,11 @@ async def scrape_news(
                 wait_until="networkidle",
                 timeout=timeout_ms,
             )
-            html_content = await listing_page.content()
+            candidates = await extract_candidate_news(listing_page, source_url)
 
-            soup = BeautifulSoup(html_content, "html.parser")
-            candidates = extract_candidate_news(soup, source_url)
-
-            iframe = soup.select_one("iframe[src]")
-            iframe_src = iframe.get("src") if iframe else None
+            iframe_src = await listing_page.locator("iframe[src]").first.get_attribute(
+                "src"
+            )
             if isinstance(iframe_src, str) and iframe_src.strip():
                 iframe_url = urljoin(source_url, iframe_src)
                 iframe_page = await context.new_page()
@@ -157,9 +167,9 @@ async def scrape_news(
                         wait_until="domcontentloaded",
                         timeout=timeout_ms,
                     )
-                    iframe_html = await iframe_page.content()
-                    iframe_soup = BeautifulSoup(iframe_html, "html.parser")
-                    candidates.extend(extract_candidate_news(iframe_soup, iframe_url))
+                    candidates.extend(
+                        await extract_candidate_news(iframe_page, iframe_url)
+                    )
                 finally:
                     await iframe_page.close()
 

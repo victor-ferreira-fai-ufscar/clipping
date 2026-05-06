@@ -14,7 +14,7 @@ Lista inicial de nomes:
 
 - Python + `uv`
 - FastAPI
-- Playwright + BeautifulSoup
+- Playwright
 - Docker Compose (fluxo recomendado)
 
 ## MCPs no VS Code (Playwright e Context7)
