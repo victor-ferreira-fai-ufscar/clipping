@@ -49,7 +49,8 @@ docker compose up --build
 API disponivel em:
 
 - `http://localhost:8000`
-- Swagger: `http://localhost:8000/docs`
+- Scalar: `http://localhost:8000/scalar`
+- OpenAPI JSON: `http://localhost:8000/openapi.json`
 
 ## Como rodar localmente com UV
 
@@ -65,6 +66,38 @@ uv run uvicorn app.main:app --reload
 
 - `GET /health`
 - `POST /scrape`
+- `GET /scalar`
+
+## Como funciona o `POST /scrape`
+
+O endpoint aceita tres formas principais de uso:
+
+1. Um unico nome em `name`
+2. Varios nomes em `names`
+3. Corpo vazio `{}` para usar automaticamente `assets/nomes.csv`
+
+Exemplo com um nome:
+
+```bash
+curl -X POST "http://localhost:8000/scrape" \
+ -H "Content-Type: application/json" \
+ -d '{
+  "name": "Heber Lombardi de Carvalho",
+  "limit": 10
+ }'
+```
+
+Exemplo com lista de nomes:
+
+```bash
+curl -X POST "http://localhost:8000/scrape" \
+ -H "Content-Type: application/json" \
+ -d '{
+  "names": ["Heber Lombardi de Carvalho", "Alexandra Sanches"],
+  "limit": 20,
+  "source_url": "https://www.ccs.ufscar.br/clipping"
+ }'
+```
 
 Exemplo de request:
 
@@ -77,4 +110,6 @@ curl -X POST "http://localhost:8000/scrape" \
  }'
 ```
 
-Se `names` nao for enviado no corpo, o endpoint usa automaticamente o arquivo `assets/nomes.csv`.
+Se `name` e `names` nao forem enviados, o endpoint usa automaticamente o arquivo `assets/nomes.csv`.
+
+Se `name` e `names` forem enviados juntos, o valor de `name` e somado a lista final antes da busca.
