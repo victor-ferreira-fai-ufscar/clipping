@@ -3,10 +3,12 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
-    command: uv run uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+    command: xvfb-run -a uv run uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
     environment:
       WATCHFILES_FORCE_POLLING: "true"
+      DISPLAY: ${DISPLAY:-:0}
     ports:
       - "8000:8000"
     volumes:
       - ./:/app
+      - /tmp/.X11-unix:/tmp/.X11-unix

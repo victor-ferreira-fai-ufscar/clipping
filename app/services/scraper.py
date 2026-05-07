@@ -295,7 +295,9 @@ async def scrape_news(
                         wait_until="domcontentloaded",
                         timeout=timeout_ms,
                     )
-                    page_1_candidates = await extract_candidate_news(iframe_page, iframe_url)
+                    page_1_candidates = await extract_candidate_news(
+                        iframe_page, iframe_url
+                    )
                     candidates.extend(page_1_candidates)
 
                     page_number = 2
@@ -306,7 +308,9 @@ async def scrape_news(
                             wait_until="domcontentloaded",
                             timeout=timeout_ms,
                         )
-                        page_candidates = await extract_candidate_news(iframe_page, paginated_url)
+                        page_candidates = await extract_candidate_news(
+                            iframe_page, paginated_url
+                        )
                         if not page_candidates:
                             break
                         candidates.extend(page_candidates)
